@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "name": "Niryat Portal — Postman Sync",
+  "description": "Monitors server route files and automatically keeps the Postman collection in sync when API routes change.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "server/src/modules/**/*.routes.js",
+      "server/src/app.js",
+      "server/src/plugins/*.js"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A server route or plugin file was modified. Read .postman.json to get the collection ID, then review the changed file and update the Postman collection to reflect any new, removed, or modified API endpoints. Use the putCollection or createCollectionRequest tools as appropriate."
+  }
+}

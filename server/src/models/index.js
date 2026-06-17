@@ -140,6 +140,8 @@ const countrySchema = new Schema(
       fta_trade_agreement_status: { type: String, default: null }
     },
     source: { type: sourceSchema, default: () => ({}) },
+    source_sheets: { type: [String], default: [] },
+    raw_payload: { type: Schema.Types.Mixed, default: null },
     search_text: { type: String, default: '' },
     embedding_text: { type: String, default: '' },
     embedding: { type: [Number], default: [] },
@@ -173,6 +175,7 @@ const countryExportYearSchema = new Schema(
     opportunity_score: { type: Number, default: null },
     risk_score: { type: Number, default: null },
     source: { type: sourceSchema, default: () => ({}) },
+    raw_payload: { type: Schema.Types.Mixed, default: null },
     import_batch_id: { type: Schema.Types.ObjectId, ref: 'ImportBatch', required: true }
   },
   timestamps
@@ -320,6 +323,7 @@ const countryBusinessInsightSchema = new Schema(
       source_name: { type: String, default: null },
       source_link: { type: String, default: null }
     },
+    raw_payload: { type: Schema.Types.Mixed, default: null },
     import_batch_id: { type: Schema.Types.ObjectId, ref: 'ImportBatch', required: true }
   },
   timestamps
@@ -340,8 +344,10 @@ const fastestGrowingCountryProfileSchema = new Schema(
     payment_risk: { type: String, default: null },
     best_entry_strategy: { type: String, default: null },
     source: {
-      source_name: { type: String, default: null }
+      source_name: { type: String, default: null },
+      source_link: { type: String, default: null }
     },
+    raw_payload: { type: Schema.Types.Mixed, default: null },
     import_batch_id: { type: Schema.Types.ObjectId, ref: 'ImportBatch', required: true }
   },
   timestamps
@@ -358,6 +364,7 @@ const indiaExportSummarySchema = new Schema(
     estimated_hs_codes_exported: { type: String, default: null },
     is_partial_year: { type: Boolean, default: false },
     source: { type: sourceSchema, default: () => ({}) },
+    raw_payload: { type: Schema.Types.Mixed, default: null },
     import_batch_id: { type: Schema.Types.ObjectId, ref: 'ImportBatch', required: true }
   },
   timestamps

@@ -1,0 +1,15 @@
+{
+  "workspaceId": "5baf156c-1877-453a-883e-6a9968fe83b9",
+  "collection": {
+    "id": "9418b754-7c5d-4d63-a299-2fe10dbf28a3",
+    "uid": "23496678-9418b754-7c5d-4d63-a299-2fe10dbf28a3",
+    "name": "Niryat Portal API"
+  },
+  "environments": {
+    "local": {
+      "id": "412bd5ce-6861-4bfe-a462-c27b29563c50",
+      "uid": "23496678-412bd5ce-6861-4bfe-a462-c27b29563c50",
+      "name": "Niryat Portal — Local"
+    }
+  }
+}
