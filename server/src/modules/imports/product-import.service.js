@@ -511,7 +511,6 @@ async function importOneProduct(record, importBatchId, summary, warnings) {
     },
     latest_export_snapshot: latest,
     source,
-    source_sheets: splitCommaList(pick(normalized, ['source_sheets'], [])),
     import_batch_id: importBatchId
   };
 

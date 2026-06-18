@@ -159,15 +159,7 @@
         "source_name": "DGCI&S",
         "source_link": "https://example.com/product-exports",
         "notes": "Final annual export figures"
-      },
-      "source_sheets": [
-        "Product Master",
-        "Export Metrics",
-        "Destination Markets",
-        "State Exports",
-        "World Position",
-        "Opportunities"
-      ]
+      }
     }
   ]
 }

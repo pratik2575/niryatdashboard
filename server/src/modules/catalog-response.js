@@ -61,8 +61,7 @@ export function formatProduct(product) {
     descriptions: product.description,
     policy: product.policy,
     latest_export: product.latest_export_snapshot,
-    source: product.source,
-    source_sheets: product.source_sheets
+    source: product.source
   });
 }
 
@@ -91,8 +90,7 @@ export function formatCountry(country) {
     continent: country.continent,
     latest_export: country.latest_export_snapshot,
     trade_profile: country.trade_profile,
-    source: country.source,
-    source_sheets: country.source_sheets
+    source: country.source
   });
 }
 

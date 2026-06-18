@@ -318,7 +318,6 @@ async function importOneCountry(record, importBatchId, summary) {
       fta_trade_agreement_status: pick(tradeProfile, ['fta_trade_agreement_status'], pick(normalized, ['fta_trade_agreement_status'], null))
     },
     source,
-    source_sheets: splitCommaList(pick(normalized, ['source_sheets'], [])),
     raw_payload: record,
     import_batch_id: importBatchId
   };

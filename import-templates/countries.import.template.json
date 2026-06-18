@@ -125,12 +125,7 @@
         "source_name": "Ministry of Commerce",
         "source_link": "https://example.com/country-exports",
         "notes": "Final annual data"
-      },
-      "source_sheets": [
-        "Country Master",
-        "Country Metrics",
-        "Business Insights"
-      ]
+      }
     }
   ]
 }

@@ -74,7 +74,6 @@ const productSchema = new Schema(
       top_global_exporter: { type: String, default: null }
     },
     source: { type: sourceSchema, default: () => ({}) },
-    source_sheets: { type: [String], default: [] },
     search_text: { type: String, default: '' },
     embedding_text: { type: String, default: '' },
     embedding: { type: [Number], default: [] },
@@ -140,7 +139,6 @@ const countrySchema = new Schema(
       fta_trade_agreement_status: { type: String, default: null }
     },
     source: { type: sourceSchema, default: () => ({}) },
-    source_sheets: { type: [String], default: [] },
     raw_payload: { type: Schema.Types.Mixed, default: null },
     search_text: { type: String, default: '' },
     embedding_text: { type: String, default: '' },
