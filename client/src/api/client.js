@@ -9,6 +9,19 @@ export function setToken(token) {
   else localStorage.removeItem(TOKEN_KEY);
 }
 
+export async function downloadImportSource(id, fileName) {
+  const response = await fetch(`/api/admin/imports/${id}/source`, {
+    headers: { Authorization: `Bearer ${getToken()}` }
+  });
+  if (!response.ok) throw new Error('Could not download source file');
+  const url = URL.createObjectURL(await response.blob());
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName || 'source-file';
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 async function request(path, options = {}) {
   const headers = new Headers(options.headers || {});
   const token = getToken();
@@ -36,8 +49,9 @@ export const api = {
   me: () => request('/api/auth/me'),
   listImports: () => request('/api/admin/imports'),
   getImport: (id) => request(`/api/admin/imports/${id}`),
-  importProducts: (formData) => request('/api/admin/import/products', { method: 'POST', body: formData }),
-  importCountries: (formData) => request('/api/admin/import/countries', { method: 'POST', body: formData }),
+  adminProducts: (params = '') => request(`/api/admin/products${params}`),
+  importCatalog: (payload) => request('/api/admin/import/catalog', { method: 'POST', body: payload }),
+  importTradeMap: (payload) => request('/api/admin/import/trade-map', { method: 'POST', body: payload }),
   products: (params = '') => request(`/api/products${params}`),
   countries: (params = '') => request(`/api/countries${params}`),
   search: (q) => request(`/api/search?q=${encodeURIComponent(q)}`),

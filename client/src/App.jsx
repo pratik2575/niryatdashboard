@@ -1,441 +1,124 @@
 import { Link, Navigate, NavLink, Route, Routes, useNavigate } from 'react-router-dom';
-import { Database, FileJson, Globe2, LoaderCircle, LogOut, PackageSearch, Search, UploadCloud } from 'lucide-react';
+import { Database, FileSpreadsheet, Globe2, LoaderCircle, LogOut, PackageSearch, Search, UploadCloud } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { api, getToken, setToken } from './api/client.js';
+import { api, downloadImportSource, getToken, setToken } from './api/client.js';
 
 function AdminShell({ children }) {
   const navigate = useNavigate();
-  const authed = Boolean(getToken());
-
-  if (!authed) return <Navigate to="/login" replace />;
-
-  return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">Niryat Portal</div>
-        <nav>
-          <NavLink to="/admin/products"><PackageSearch size={18} /> Products</NavLink>
-          <NavLink to="/admin/countries"><Globe2 size={18} /> Countries</NavLink>
-          <NavLink to="/admin/imports/products"><UploadCloud size={18} /> Add Product JSON</NavLink>
-          <NavLink to="/admin/imports/countries"><FileJson size={18} /> Add Country JSON</NavLink>
-          <NavLink to="/admin/imports"><Database size={18} /> Import History</NavLink>
-        </nav>
-        <button
-          className="ghost-button"
-          type="button"
-          onClick={() => {
-            setToken(null);
-            navigate('/login');
-          }}
-        >
-          <LogOut size={18} /> Sign out
-        </button>
-      </aside>
-      <main className="content">{children}</main>
-    </div>
-  );
+  if (!getToken()) return <Navigate to="/login" replace />;
+  return <div className="app-shell">
+    <aside className="sidebar">
+      <div className="brand">Niryat Portal</div>
+      <nav>
+        <NavLink to="/admin/products"><PackageSearch size={18} /> HS Catalog</NavLink>
+        <NavLink to="/admin/geographies"><Globe2 size={18} /> Geographies</NavLink>
+        <NavLink to="/admin/imports/catalog"><FileSpreadsheet size={18} /> Import HS Catalog</NavLink>
+        <NavLink to="/admin/imports/trade-map"><UploadCloud size={18} /> Import Trade Map</NavLink>
+        <NavLink to="/admin/imports"><Database size={18} /> Import History</NavLink>
+      </nav>
+      <button className="ghost-button" type="button" onClick={() => { setToken(null); navigate('/login'); }}>
+        <LogOut size={18} /> Sign out
+      </button>
+    </aside>
+    <main className="content">{children}</main>
+  </div>;
 }
 
 function Login() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
-
   async function submit(event) {
-    event.preventDefault();
-    setError('');
-    try {
-      const result = await api.login(form);
-      setToken(result.token);
-      navigate('/admin/products');
-    } catch (err) {
-      setError(err.message);
-    }
+    event.preventDefault(); setError('');
+    try { const result = await api.login(form); setToken(result.token); navigate('/admin/products'); }
+    catch (err) { setError(err.message); }
   }
-
-  return (
-    <main className="login-page">
-      <form className="login-panel" onSubmit={submit}>
-        <h1>Niryat Admin</h1>
-        <label>Email<input value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
-        <label>Password<input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></label>
-        {error ? <p className="error">{error}</p> : null}
-        <button type="submit">Sign in</button>
-      </form>
-    </main>
-  );
+  return <main className="login-page"><form className="login-panel" onSubmit={submit}>
+    <h1>Niryat Admin</h1>
+    <label>Email<input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
+    <label>Password<input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></label>
+    {error ? <p className="error">{error}</p> : null}<button type="submit">Sign in</button>
+  </form></main>;
 }
 
-function PublicSearch() {
+function CatalogPage() {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState({ products: [], countries: [] });
-
-  useEffect(() => {
-    const timeout = setTimeout(async () => {
-      if (!query.trim()) {
-        setResults({ products: [], countries: [] });
-        return;
-      }
-      const data = await api.search(query);
-      setResults(data);
-    }, 250);
-    return () => clearTimeout(timeout);
-  }, [query]);
-
-  return (
-    <main className="public-page">
-      <section className="search-band">
-        <div>
-          <h1>Export Intelligence Search</h1>
-          <p>Search products, HS codes, countries, sectors, and trade agreements.</p>
-        </div>
-        <label className="search-box">
-          <Search size={20} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Honey, 040900, UAE, textiles..." />
-        </label>
-      </section>
-      <section className="result-grid">
-        <ResultList title="Products" items={results.products} labelKey="product_name" metaKey="hs_code_6_digit" />
-        <ResultList title="Countries" items={results.countries} labelKey="country_name" metaKey="iso_code" />
-      </section>
-    </main>
-  );
-}
-
-function ResultList({ title, items, labelKey, metaKey }) {
-  return (
-    <div className="panel">
-      <h2>{title}</h2>
-      {items.length ? items.map((item) => (
-        <div className="row" key={item._id}>
-          <strong>{item[labelKey]}</strong>
-          <span>{item[metaKey] || item.region || item.sector || 'N/A'}</span>
-        </div>
-      )) : <p className="muted">No results</p>}
-    </div>
-  );
-}
-
-function DataListingPage({ type }) {
-  const isProducts = type === 'products';
-  const [query, setQuery] = useState('');
+  const [active, setActive] = useState('');
   const [data, setData] = useState({ items: [], total: 0 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
   useEffect(() => {
-    const timeout = setTimeout(async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const params = query.trim() ? `?q=${encodeURIComponent(query.trim())}` : '';
-        const result = isProducts ? await api.products(params) : await api.countries(params);
-        setData(result);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }, 250);
-
+    const timeout = setTimeout(() => {
+      const params = new URLSearchParams();
+      if (query) params.set('q', query); if (active) params.set('active', active);
+      api.adminProducts(`?${params}`).then(setData).catch(console.error);
+    }, 200);
     return () => clearTimeout(timeout);
-  }, [isProducts, query]);
-
-  return (
-    <AdminShell>
-      <div className="page-head">
-        <div>
-          <h1>{isProducts ? 'Product Data' : 'Country Data'}</h1>
-          <p className="page-subtitle">{data.total || 0} records available</p>
-        </div>
-        <Link className="button-link" to={isProducts ? '/admin/imports/products' : '/admin/imports/countries'}>
-          <UploadCloud size={18} /> Add JSON
-        </Link>
-      </div>
-
-      <div className="toolbar">
-        <label className="search-box">
-          <Search size={18} />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={isProducts ? 'Search product, HS code, sector...' : 'Search country, ISO, region...'}
-          />
-        </label>
-      </div>
-
-      {error ? <p className="error">{error}</p> : null}
-
-      <div className="panel">
-        {loading ? <p className="muted">Loading...</p> : isProducts ? <ProductTable items={data.items || []} /> : <CountryTable items={data.items || []} />}
-      </div>
-    </AdminShell>
-  );
+  }, [query, active]);
+  return <AdminShell>
+    <div className="page-head"><div><h1>HS Product Catalog</h1><p className="page-subtitle">{data.total} records</p></div>
+      <Link className="button-link" to="/admin/imports/catalog"><UploadCloud size={18} /> Import catalog</Link></div>
+    <div className="toolbar"><label className="search-box"><Search size={18} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search HS code or description" /></label>
+      <select value={active} onChange={(e) => setActive(e.target.value)}><option value="">All statuses</option><option value="true">Active</option><option value="false">Inactive</option></select></div>
+    <div className="panel"><table><thead><tr><th>HS Code</th><th>Description</th><th>Section</th><th>Parent</th><th>Level</th><th>Status</th></tr></thead>
+      <tbody>{data.items.map((item) => <tr key={item._id}><td><strong>{item.hscode}</strong></td><td>{item.description}</td><td>{item.section}</td><td>{item.parent_code || '—'}</td><td>{item.level}</td><td><span className={`status ${item.is_active ? 'completed' : 'pending'}`}>{item.is_active ? 'Active' : 'Inactive'}</span></td></tr>)}</tbody></table></div>
+  </AdminShell>;
 }
 
-function ProductTable({ items }) {
-  if (!items.length) return <p className="muted">No product records found.</p>;
-
-  return (
-    <table>
-      <thead>
-        <tr>
-          <th>Product</th>
-          <th>HS 6</th>
-          <th>ITC-HS 8</th>
-          <th>Sector</th>
-          <th>Category</th>
-          <th>Latest FY</th>
-          <th>Export USD Mn</th>
-        </tr>
-      </thead>
-      <tbody>
-        {items.map((product) => (
-          <tr key={product.id}>
-            <td><strong>{product.name}</strong></td>
-            <td>{product.hs_code_6_digit}</td>
-            <td>{product.itc_hs_8_digit || 'N/A'}</td>
-            <td>{product.sector || 'N/A'}</td>
-            <td>{product.category || 'N/A'}</td>
-            <td>{product.latest_export?.financial_year || 'N/A'}</td>
-            <td>{product.latest_export?.export_value_usd_mn ?? 'N/A'}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
+function GeographyPage() {
+  const [data, setData] = useState({ items: [], total: 0 });
+  const [query, setQuery] = useState('');
+  useEffect(() => { const t = setTimeout(() => api.countries(query ? `?q=${encodeURIComponent(query)}` : '').then(setData).catch(console.error), 200); return () => clearTimeout(t); }, [query]);
+  return <AdminShell><div className="page-head"><div><h1>Geographies</h1><p className="page-subtitle">{data.total} canonical and aggregate records</p></div></div>
+    <div className="toolbar"><label className="search-box"><Search size={18} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name or ISO code" /></label></div>
+    <div className="panel"><table><thead><tr><th>Name</th><th>Type</th><th>ISO-2</th><th>ISO-3</th><th>Trade Map aliases</th></tr></thead><tbody>
+      {data.items.map((item) => <tr key={item._id}><td><strong>{item.name}</strong></td><td>{item.type}</td><td>{item.iso2 || '—'}</td><td>{item.iso3 || '—'}</td><td>{item.aliases?.join(', ')}</td></tr>)}</tbody></table></div>
+  </AdminShell>;
 }
 
-function CountryTable({ items }) {
-  if (!items.length) return <p className="muted">No country records found.</p>;
-
-  return (
-    <table>
-      <thead>
-        <tr>
-          <th>Country</th>
-          <th>ISO</th>
-          <th>Region</th>
-          <th>Continent</th>
-          <th>Latest FY</th>
-          <th>Rank</th>
-          <th>Export USD Mn</th>
-        </tr>
-      </thead>
-      <tbody>
-        {items.map((country) => (
-          <tr key={country.id}>
-            <td><strong>{country.name}</strong></td>
-            <td>{country.iso_code || 'N/A'}</td>
-            <td>{country.region || 'N/A'}</td>
-            <td>{country.continent || 'N/A'}</td>
-            <td>{country.latest_export?.financial_year || 'N/A'}</td>
-            <td>{country.latest_export?.rank ?? 'N/A'}</td>
-            <td>{country.latest_export?.export_value_usd_mn ?? 'N/A'}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-function ImportHistory() {
-  const [data, setData] = useState({ items: [] });
-
-  useEffect(() => {
-    api.listImports().then(setData).catch(console.error);
-  }, []);
-
-  return (
-    <AdminShell>
-      <div className="page-head">
-        <h1>Import History</h1>
-      </div>
-      <div className="panel">
-        <table>
-          <thead>
-            <tr><th>Type</th><th>Status</th><th>Records</th><th>Created</th><th>Updated</th><th>Skipped</th><th></th></tr>
-          </thead>
-          <tbody>
-            {data.items.map((batch) => (
-              <tr key={batch._id}>
-                <td>{batch.import_type}</td>
-                <td><span className={`status ${batch.status}`}>{batch.status}</span></td>
-                <td>{batch.record_count}</td>
-                <td>{batch.validation_summary?.created || 0}</td>
-                <td>{batch.validation_summary?.updated || 0}</td>
-                <td>{batch.validation_summary?.skipped || 0}</td>
-                <td><NavLink to={`/admin/imports/${batch._id}`}>View</NavLink></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </AdminShell>
-  );
-}
-
-function UploadPage({ type }) {
-  const [file, setFile] = useState(null);
-  const [jsonText, setJsonText] = useState('');
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const isProducts = type === 'products';
-
-  function parseJsonBody() {
-    const payload = JSON.parse(jsonText || (isProducts ? '[]' : '{}'));
-
-    if (isProducts) {
-      const hasValidShape = Array.isArray(payload) || Array.isArray(payload.products) || Array.isArray(payload.records);
-      if (!hasValidShape) {
-        throw new Error('Product JSON must be a direct array of objects, or an object with products/records array.');
-      }
-    }
-
-    if (!isProducts) {
-      const hasValidShape = Array.isArray(payload) || Array.isArray(payload.countries) || Array.isArray(payload.records);
-      if (!hasValidShape) {
-        throw new Error('Country JSON must be a direct array of country objects, or an object with countries/records array.');
-      }
-    }
-
-    return payload;
-  }
-
+function ImportPage({ type }) {
+  const catalog = type === 'catalog';
+  const [file, setFile] = useState(null); const [hscode, setHscode] = useState(''); const [year, setYear] = useState('');
+  const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [result, setResult] = useState(null);
   async function submit(event) {
-    event.preventDefault();
-    setResult(null);
-    setError('');
-    setUploading(true);
+    event.preventDefault(); setBusy(true); setError(''); setResult(null);
     try {
-      let payload;
-      if (file) {
-        payload = new FormData();
-        payload.append('file', file);
-      } else {
-        payload = parseJsonBody();
-      }
-
-      const response = isProducts ? await api.importProducts(payload) : await api.importCountries(payload);
-      setResult(response);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setUploading(false);
-    }
+      if (!file) throw new Error('Choose a source file');
+      const body = new FormData(); body.append('file', file);
+      if (!catalog) { if (hscode) body.append('hscode', hscode); if (year) body.append('year', year); }
+      setResult(catalog ? await api.importCatalog(body) : await api.importTradeMap(body));
+    } catch (err) { setError(err.message); } finally { setBusy(false); }
   }
-
-  return (
-    <AdminShell>
-      <div className="page-head">
-        <div>
-          <h1>{isProducts ? 'Product JSON Import' : 'Country JSON Import'}</h1>
-          <p className="page-subtitle">
-            {isProducts
-              ? 'Paste a direct JSON array of product objects or upload a .json file.'
-              : 'Paste country JSON as an array, or as an object with india_export_summary and countries.'}
-          </p>
-        </div>
-      </div>
-      <form className="panel upload-panel" onSubmit={submit} aria-busy={uploading}>
-        <label>
-          JSON file
-          <input
-            type="file"
-            accept="application/json,.json"
-            disabled={uploading}
-            onChange={(event) => setFile(event.target.files?.[0] || null)}
-          />
-        </label>
-        <label>
-          JSON body
-          <textarea
-            value={jsonText}
-            disabled={uploading}
-            onChange={(event) => setJsonText(event.target.value)}
-            placeholder={
-              isProducts
-                ? '[{"hs_chapter":"04","hs_code_6_digit":"040900","product_name":"Natural Honey"}]'
-                : '{"india_export_summary": {...}, "countries":[...]}'
-            }
-          />
-        </label>
-        <button type="submit" disabled={uploading}>
-          {uploading ? <LoaderCircle className="spin" size={18} /> : <UploadCloud size={18} />}
-          {uploading ? 'Uploading...' : 'Upload'}
-        </button>
-      </form>
-      {uploading ? (
-        <div className="panel loading-panel">
-          <LoaderCircle className="spin" size={22} />
-          <div>
-            <strong>Import is running</strong>
-            <p className="muted">The server is validating, normalizing, and saving the JSON records. Keep this page open.</p>
-          </div>
-        </div>
-      ) : null}
-      {error ? <p className="error">{error}</p> : null}
-      {result ? <ImportSummary result={result} /> : null}
-    </AdminShell>
-  );
+  return <AdminShell><div className="page-head"><div><h1>{catalog ? 'Import HS Catalog' : 'Import Trade Map Exports'}</h1>
+    <p className="page-subtitle">{catalog ? 'Upload the base section, hscode, description, parent, and level dataset.' : 'One file must represent exactly one HS code and one calendar year.'}</p></div></div>
+    <form className="panel upload-panel" onSubmit={submit}>
+      <label>Source file<input type="file" accept={catalog ? '.xlsx,.csv,.json,.xls' : '.xls,.xlsx'} onChange={(e) => setFile(e.target.files?.[0] || null)} /></label>
+      {!catalog ? <><label>HS code (optional confirmation)<input value={hscode} onChange={(e) => setHscode(e.target.value)} placeholder="100630" /></label><label>Year (optional confirmation)<input value={year} onChange={(e) => setYear(e.target.value)} placeholder="2025" /></label></> : null}
+      <button type="submit" disabled={busy}>{busy ? <LoaderCircle className="spin" size={18} /> : <UploadCloud size={18} />}{busy ? 'Importing…' : 'Import'}</button>
+    </form>{error ? <p className="error">{error}</p> : null}{result ? <ImportSummary result={result} /> : null}
+  </AdminShell>;
 }
 
 function ImportSummary({ result }) {
-  return (
-    <div className="panel">
-      <h2>Import Summary</h2>
-      <div className="summary-grid">
-        {Object.entries(result.summary || {}).map(([key, value]) => <div key={key}><span>{key}</span><strong>{value}</strong></div>)}
-      </div>
-      {result.warnings?.length ? <pre>{result.warnings.join('\n')}</pre> : null}
-    </div>
-  );
+  return <div className="panel"><h2>Import Summary</h2><div className="summary-grid">{Object.entries(result.summary || {}).map(([key, value]) => <div key={key}><span>{key}</span><strong>{value}</strong></div>)}</div>
+    <p className="muted">Status: {result.status}{result.warning_count ? ` · ${result.warning_count} warnings` : ''}</p></div>;
+}
+
+function ImportHistory() {
+  const [data, setData] = useState({ items: [] }); useEffect(() => { api.listImports().then(setData).catch(console.error); }, []);
+  return <AdminShell><div className="page-head"><h1>Import History</h1></div><div className="panel"><table><thead><tr><th>Type</th><th>Target</th><th>Year</th><th>Status</th><th>Rows</th><th>File</th><th></th></tr></thead><tbody>
+    {data.items.map((batch) => <tr key={batch._id}><td>{batch.import_type}</td><td>{batch.target_hscode || '—'}</td><td>{batch.snapshot_year || '—'}</td><td><span className={`status ${batch.status}`}>{batch.status}</span></td><td>{batch.record_count}</td><td>{batch.file_name}</td><td><NavLink to={`/admin/imports/${batch._id}`}>View</NavLink></td></tr>)}</tbody></table></div></AdminShell>;
 }
 
 function ImportDetail() {
-  const [batch, setBatch] = useState(null);
-  const id = window.location.pathname.split('/').pop();
-
-  useEffect(() => {
-    api.getImport(id).then((data) => setBatch(data.item)).catch(console.error);
-  }, [id]);
-
-  return (
-    <AdminShell>
-      <div className="page-head">
-        <h1>Import Detail</h1>
-      </div>
-      {batch ? (
-        <div className="panel">
-          <div className="detail-grid">
-            <div><span>Type</span><strong>{batch.import_type}</strong></div>
-            <div><span>Status</span><strong>{batch.status}</strong></div>
-            <div><span>Records</span><strong>{batch.record_count}</strong></div>
-            <div><span>File</span><strong>{batch.file_name}</strong></div>
-          </div>
-          <ImportSummary result={{ summary: batch.validation_summary, warnings: batch.warnings }} />
-          {batch.errors?.length ? <pre>{batch.errors.join('\n')}</pre> : null}
-        </div>
-      ) : <p className="muted">Loading...</p>}
-    </AdminShell>
-  );
+  const [data, setData] = useState(null); const id = window.location.pathname.split('/').pop();
+  useEffect(() => { api.getImport(id).then(setData).catch(console.error); }, [id]);
+  if (!data) return <AdminShell><p className="muted">Loading…</p></AdminShell>;
+  return <AdminShell><div className="page-head"><h1>Import Detail</h1></div><div className="panel"><div className="detail-grid"><div><span>Type</span><strong>{data.item.import_type}</strong></div><div><span>Status</span><strong>{data.item.status}</strong></div><div><span>Records</span><strong>{data.item.record_count}</strong></div><div><span>File</span><strong><button className="ghost-button" onClick={() => downloadImportSource(id, data.item.file_name)}>{data.item.file_name}</button></strong></div></div>
+    <ImportSummary result={{ summary: data.item.validation_summary, status: data.item.status }} />{data.issues?.length ? <pre>{data.issues.map((issue) => `${issue.severity}: ${issue.message}`).join('\n')}</pre> : null}</div></AdminShell>;
 }
 
 export default function App() {
-  return (
-    <Routes>
-      <Route path="/" element={<Navigate to="/admin/products" replace />} />
-      <Route path="/search" element={<PublicSearch />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/admin" element={<Navigate to="/admin/products" replace />} />
-      <Route path="/admin/products" element={<DataListingPage type="products" />} />
-      <Route path="/admin/countries" element={<DataListingPage type="countries" />} />
-      <Route path="/admin/imports" element={<ImportHistory />} />
-      <Route path="/admin/imports/products" element={<UploadPage type="products" />} />
-      <Route path="/admin/imports/countries" element={<UploadPage type="countries" />} />
-      <Route path="/admin/imports/:id" element={<ImportDetail />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  );
+  return <Routes><Route path="/" element={<Navigate to="/admin/products" replace />} /><Route path="/login" element={<Login />} />
+    <Route path="/admin/products" element={<CatalogPage />} /><Route path="/admin/geographies" element={<GeographyPage />} />
+    <Route path="/admin/imports/catalog" element={<ImportPage type="catalog" />} /><Route path="/admin/imports/trade-map" element={<ImportPage type="trade-map" />} />
+    <Route path="/admin/imports" element={<ImportHistory />} /><Route path="/admin/imports/:id" element={<ImportDetail />} /><Route path="*" element={<Navigate to="/" replace />} /></Routes>;
 }

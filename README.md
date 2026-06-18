@@ -1,170 +1,66 @@
 # Niryat Portal
 
-Fastify, MongoDB, and React Vite implementation for the Niryat Portal export intelligence admin and public API surface.
+Niryat Portal stores exactly two source datasets:
 
-## Structure
+1. The base HS catalog (`section`, `hscode`, `description`, `parent`, `level`).
+2. Country/geography export metrics from one Trade Map workbook per HS code and calendar year.
 
-```txt
-server/
-  src/
-    app.js
-    server.js
-    config/
-    plugins/
-    modules/
-    models/
-    utils/
-    scripts/
-client/
-  src/
-```
+## Data model
 
-## Setup
+- `hs_products` — one canonical HS record at level 2, 4, or 6. Level 2/4 categories are active by default; level 6 products activate after their first successful Trade Map import.
+- `geographies` — canonical ISO-identified countries/territories plus non-ISO rows such as World, regions, and Free Zones. Every Trade Map spelling is retained as an alias.
+- `export_snapshots` — one row per HS code, year, and geography, with the values in the original Trade Map units.
+- `import_batches_v2` — upload status, target HS/year, counts, uploader, and source-file metadata.
+- `import_issues` — row-level warnings and errors.
+- `import_files.files` / `import_files.chunks` — original uploads retained through MongoDB GridFS.
 
-1. Install dependencies:
+The unique snapshot key is `(product_id, year, geography_id)`. Re-uploading the same HS code and year replaces those geography snapshots while preserving both import audit records and both original source files.
+
+Legacy collections from the previous model are not read or modified.
+
+## Import behavior
+
+### HS catalog
+
+`POST /api/admin/import/catalog`
+
+Accepted files: `.xlsx`, `.csv`, `.json`, and HTML-based `.xls`. Binary `.xls` must first be saved as `.xlsx` or CSV. HS codes are padded according to `level`, so level 4 value `101` becomes `0101`.
+
+Catalog records begin inactive at level 6. Level 2 and level 4 categories remain active so they can be used for navigation. Fetching children through the public product API always returns only active children.
+
+### Trade Map exports
+
+`POST /api/admin/import/trade-map`
+
+Upload one Trade Map file for one HS code and one year. The importer extracts both values from the workbook title/header. Optional `hscode` and `year` form fields act as confirmations and cause the import to fail if they disagree with the file.
+
+Trade Map `.xls` downloads are detected as HTML by content rather than extension. All supplied metrics remain in their source units, including USD thousand and Tons.
+
+## Main APIs
+
+- `GET /api/products` — active catalog records only
+- `GET /api/products?parent=10` — active direct children of HS 10
+- `GET /api/products/by-hs/1006` — category and active children
+- `GET /api/products/100630?year=2025` — product and exporter metrics
+- `GET /api/countries` — all canonical and aggregate geographies
+- `GET /api/countries/IND?year=2025` — exports reported for a geography
+- `GET /api/admin/products` — complete active/inactive catalog
+- `GET /api/admin/imports/:id` — batch plus row-level issues
+- `GET /api/admin/imports/:id/source` — retained source file
+
+Admin routes require `Authorization: Bearer <token>`.
+
+## Run
 
 ```bash
 npm install
+npm run dev
 ```
 
-2. Configure the backend:
+Required environment variables are `MONGODB_URI`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD`. Configure `JWT_SECRET` in production.
 
-```bash
-cp server/.env.example server/.env
-```
-
-Set:
-
-```env
-PORT=4000
-MONGODB_URI=mongodb://localhost:27017/niryat_portal
-JWT_SECRET=replace-with-a-long-secret
-NODE_ENV=development
-ADMIN_EMAIL=admin@niryat.local
-ADMIN_PASSWORD=change-me
-```
-
-3. Start the backend:
-
-```bash
-npm run dev:server
-```
-
-4. Start the Vite client:
-
-```bash
-npm run dev:client
-```
-
-The client runs at `http://localhost:5173` and proxies `/api` to `http://localhost:4000`.
-The default web app route opens the admin data listing workflow. Products and countries can be listed, searched, and updated by uploading JSON.
-
-## Admin Routes
-
-- `POST /api/auth/login`
-- `GET /api/auth/me`
-- `POST /api/admin/import/products`
-- `POST /api/admin/import/countries`
-- `GET /api/admin/imports`
-- `GET /api/admin/imports/:id`
-
-Admin import routes require `Authorization: Bearer <token>`.
-
-Both import endpoints accept either a JSON request body or a multipart JSON file field.
-Product uploads can be sent as a direct array of product objects:
-
-```json
-[
-  {
-    "hs_chapter": "04",
-    "hs_code_6_digit": "040900",
-    "product_name": "Natural Honey"
-  }
-]
-```
-
-Country uploads can be sent as a direct array of country objects, or as an object containing `india_export_summary` and `countries`.
-
-## Public APIs
-
-- `GET /health`
-- `GET /api/products`
-- `GET /api/products/:id`
-- `GET /api/products/by-hs/:hsCode`
-- `GET /api/products/:id/destinations`
-- `GET /api/products/:id/states`
-- `GET /api/products/:id/world-position`
-- `GET /api/products/:id/opportunities`
-- `GET /api/countries`
-- `GET /api/countries/:id`
-- `GET /api/countries/:id/export-years`
-- `GET /api/countries/:id/business-insights`
-- `GET /api/countries/:id/fastest-growing-profile`
-- `GET /api/search?q=`
-- `GET /api/search/products?q=`
-- `GET /api/search/countries?q=`
-
-### Catalog response format
-
-Product and country list endpoints return compact summaries in `items` plus `page`, `limit`, `total`, and `total_pages`.
-The detail endpoints return normalized page-ready data:
-
-```json
-{
-  "success": true,
-  "data": {
-    "product": {},
-    "export_history": [],
-    "destinations": [],
-    "states": [],
-    "world_position": [],
-    "opportunities": []
-  }
-}
-```
-
-Country detail uses `country`, `export_history`, `products`, `business_insights`, and `growth_profile`.
-Destination, state, and country-product records are grouped by entity with an `export_history` array, preventing identity and classification data from being repeated for each financial year. Internal import fields, raw payloads, embeddings, and database relationship IDs are not exposed.
-
-## Data Model Notes
-
-Uploaded JSON is normalized into separate MongoDB collections:
-
-- `hs_chapters`
-- `hs_codes`
-- `products`
-- `product_export_years`
-- `countries`
-- `country_export_years`
-- `product_country_exports`
-- `state_product_exports`
-- `product_world_positions`
-- `opportunities`
-- `country_business_insights`
-- `fastest_growing_country_profiles`
-- `india_export_summaries`
-- `import_batches`
-- `admin_users`
-
-Product uniqueness uses `itc_hs_8_digit` when present. When the 8-digit code is missing, uniqueness falls back to `hs_code_6_digit + product_name_slug`.
-
-Country uniqueness uses `iso_code` when present. When ISO is missing, uniqueness falls back to `country_slug`.
-
-## Indexes
-
-Mongoose creates indexes automatically in development. To explicitly sync indexes:
+Sync the new indexes with:
 
 ```bash
 node server/src/scripts/sync-indexes.js
 ```
-
-## Vector Search Preparation
-
-`server/src/modules/search/vector.service.js` contains stubs for:
-
-- `generateProductEmbeddingText(product)`
-- `generateCountryEmbeddingText(country)`
-- `semanticProductSearch(query)`
-- `semanticCountrySearch(query)`
-
-The semantic search methods currently return a clean fallback response until an embedding provider and Atlas Vector Search configuration are added.
