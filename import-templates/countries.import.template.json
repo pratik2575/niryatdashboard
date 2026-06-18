@@ -1,0 +1,136 @@
+{
+  "india_export_summary": [
+    {
+      "financial_year": "2024-25",
+      "india_total_exports_usd_bn": 437.4,
+      "yoy_growth_percent": 6.2,
+      "top_export_sector": "Engineering Goods",
+      "total_export_destinations": 230,
+      "estimated_hs_codes_exported": "7800+",
+      "is_partial_year": false,
+      "source": {
+        "source_name": "Ministry of Commerce",
+        "source_link": "https://example.com/india-exports",
+        "notes": "Replace this sample with the authoritative source"
+      }
+    }
+  ],
+  "countries": [
+    {
+      "country_name": "United States",
+      "iso_code": "US",
+      "region": "Northern America",
+      "continent": "North America",
+      "latest_export_snapshot": {
+        "financial_year": "2024-25",
+        "rank": 1,
+        "export_value_usd_mn": 78200,
+        "yoy_growth_percent": 8.4,
+        "three_year_cagr_percent": 7.1,
+        "computed_share_in_india_exports_percent": 17.9,
+        "opportunity_score": 88,
+        "risk_score": 18
+      },
+      "export_metrics": [
+        {
+          "financial_year": "2024-25",
+          "rank": 1,
+          "export_value_usd_mn": 78200,
+          "yoy_growth_percent": 8.4,
+          "three_year_cagr_percent": 7.1,
+          "share_in_india_total_exports_percent": 17.9,
+          "opportunity_score": 88,
+          "risk_score": 18
+        },
+        {
+          "financial_year": "2023-24",
+          "rank": 1,
+          "export_value_usd_mn": 72100,
+          "yoy_growth_percent": 5.7,
+          "three_year_cagr_percent": 6.5,
+          "share_in_india_total_exports_percent": 17.2,
+          "opportunity_score": 85,
+          "risk_score": 20
+        }
+      ],
+      "trade_profile": {
+        "major_products_exported": [
+          "Pharmaceuticals",
+          "Engineering Goods",
+          "Textiles"
+        ],
+        "top_hs_chapters": [
+          "30",
+          "84",
+          "62"
+        ],
+        "fta_trade_agreement_status": "No comprehensive FTA"
+      },
+      "business_insights": {
+        "export_trend": "Strong and consistently growing",
+        "fastest_growing_indian_exports": [
+          "Electronics",
+          "Pharmaceuticals"
+        ],
+        "declining_exports": [
+          "Traditional textiles"
+        ],
+        "best_opportunity_sectors": [
+          "Healthcare",
+          "Technology",
+          "Specialty foods"
+        ],
+        "typical_buyer_type": [
+          "Distributors",
+          "Retail chains",
+          "Industrial buyers"
+        ],
+        "market_entry_difficulty": 6,
+        "key_documentation": [
+          "Commercial invoice",
+          "Certificate of origin",
+          "FDA registration where applicable"
+        ],
+        "compliance_notes": "Product-specific federal regulations apply",
+        "payment_risk": "Low",
+        "logistics_notes": "Strong sea and air connectivity",
+        "strategic_recommendation": "Use a local distributor for initial market entry",
+        "source": {
+          "source_name": "Trade Intelligence Report",
+          "source_link": "https://example.com/country-insights"
+        }
+      },
+      "fastest_growing_profile": [
+        {
+          "financial_year": "2024-25",
+          "rank": 1,
+          "export_value_usd_mn": 78200,
+          "yoy_growth_percent": 8.4,
+          "three_year_cagr_percent": 7.1,
+          "fastest_growing_products": [
+            "Electronics",
+            "Pharmaceuticals"
+          ],
+          "fta_trade_agreement": "No comprehensive FTA",
+          "ease_of_entry_notes": "Moderate regulatory requirements",
+          "payment_risk": "Low",
+          "best_entry_strategy": "Partner with an established importer",
+          "source": {
+            "source_name": "Trade Intelligence Report",
+            "source_link": "https://example.com/growth-profile"
+          }
+        }
+      ],
+      "source": {
+        "source_name": "Ministry of Commerce",
+        "source_link": "https://example.com/country-exports",
+        "notes": "Final annual data"
+      },
+      "source_sheets": [
+        "Country Master",
+        "Country Metrics",
+        "Business Insights"
+      ]
+    }
+  ]
+}

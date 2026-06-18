@@ -77,6 +77,11 @@ function recordsFromSection(section, typeKey = null) {
     .map(([key, value]) => (typeKey && !hasValue(value[typeKey]) ? { ...value, [typeKey]: key } : value));
 }
 
+function recordsFromObjectOrArray(section) {
+  if (Array.isArray(section)) return section.filter(isPlainObject);
+  return isPlainObject(section) ? [section] : [];
+}
+
 function matchingValue(source, pattern, fallback = null) {
   if (!isPlainObject(source)) return fallback;
   const entry = Object.entries(source).find(([key, value]) => pattern.test(key) && hasValue(value));
@@ -153,7 +158,8 @@ function yearlyMetricsFrom(record) {
         three_year_cagr_percent: parsePercent(pick(item, ['three_year_cagr_percent', 'three_year_cagr'], null)),
         share_in_india_exports_percent: parsePercent(pick(item, ['share_in_india_exports_percent', 'share_percent'], null))
       }))
-      .filter((item) => item.financial_year);
+      .filter((item) => item.financial_year)
+      .sort((a, b) => b.financial_year.localeCompare(a.financial_year));
   }
 
   const metricSource = isPlainObject(explicit) ? mergeImportSections(record, explicit) : record;
@@ -163,18 +169,42 @@ function yearlyMetricsFrom(record) {
   }));
 }
 
-async function upsertCountryByName(name, importBatchId, source) {
-  const countryName = String(name || '').trim();
+async function upsertDestinationCountry(destination, importBatchId, source) {
+  const details = isPlainObject(destination) ? destination : {};
+  const countryName = String(
+    typeof destination === 'string'
+      ? destination
+      : pick(details, ['country_name', 'destination_country', 'country'], '')
+  ).trim();
   if (!countryName) return null;
 
   const countrySlug = slugify(countryName);
+  const isoValue = pick(details, ['iso_code', 'country_iso_code', 'country_code'], null);
+  const isoCode = isoValue ? String(isoValue).trim().toUpperCase() : null;
+  const countryByIso = isoCode ? await Country.findOne({ iso_code: isoCode }) : null;
+  const existingCountry = countryByIso || await Country.findOne({ country_slug: countrySlug });
+
+  if (existingCountry) {
+    const missingDetails = {};
+    if (!existingCountry.iso_code && isoCode) missingDetails.iso_code = isoCode;
+    if (!existingCountry.region && details.region) missingDetails.region = details.region;
+    if (!existingCountry.continent && details.continent) missingDetails.continent = details.continent;
+
+    if (Object.keys(missingDetails).length) {
+      return Country.findByIdAndUpdate(existingCountry._id, { $set: missingDetails }, { new: true });
+    }
+    return existingCountry;
+  }
+
   return Country.findOneAndUpdate(
-    { country_slug: countrySlug, iso_code: null },
+    isoCode ? { iso_code: isoCode } : { country_slug: countrySlug, iso_code: null },
     {
       $set: {
         country_name: countryName,
         country_slug: countrySlug,
-        iso_code: null,
+        iso_code: isoCode,
+        region: pick(details, ['region'], null),
+        continent: pick(details, ['continent'], null),
         search_text: countryName,
         embedding_text: countryName,
         source,
@@ -214,8 +244,7 @@ async function upsertDestinations(product, record, importBatchId, source, warnin
   const destinations = recordsFromSection(pick(record, ['top_destinations', 'destination_markets', 'product_country_exports', 'top_destination_countries'], []));
 
   for (const destination of destinations) {
-    const countryName = typeof destination === 'string' ? destination : pick(destination, ['country_name', 'destination_country', 'country'], null);
-    const country = await upsertCountryByName(countryName, importBatchId, source);
+    const country = await upsertDestinationCountry(destination, importBatchId, source);
     if (!country) continue;
 
     const financialYear =
@@ -298,42 +327,45 @@ async function upsertStateExports(product, record, importBatchId, source, warnin
 }
 
 async function upsertWorldPosition(product, record, importBatchId, source, warnings) {
-  const world = pick(record, ['india_vs_world_share', 'world_position', 'product_world_position'], null);
-  if (!world) return;
-
-  const financialYear = financialYearFrom(world, financialYearFrom(record, product.latest_export_snapshot?.financial_year)) || UNSPECIFIED_FINANCIAL_YEAR;
-  if (financialYear === UNSPECIFIED_FINANCIAL_YEAR) {
-    warnings.push(`Stored world position for ${product.product_name} with unspecified financial_year`);
-  }
-  const worldSource = sourceFrom(world, source);
-
-  await ProductWorldPosition.findOneAndUpdate(
-    { product_id: product._id, financial_year: financialYear },
-    {
-      $set: {
-        product_id: product._id,
-        hs_code_6_digit: product.hs_code_6_digit,
-        itc_hs_8_digit: product.itc_hs_8_digit,
-        financial_year: financialYear,
-        india_export_value_usd_mn: parseNumber(pick(world, ['india_export_value_usd_mn', 'india_exports_usd_mn'], null)),
-        world_export_value_usd_mn: parseNumber(pick(world, ['world_export_value_usd_mn', 'global_export_value_usd_mn'], null)),
-        india_share_in_world_exports_percent: parsePercent(pick(world, ['india_share_in_world_exports_percent', 'india_global_share_percent'], null)),
-        india_global_rank: parseNumber(pick(world, ['india_global_rank', 'rank'], null)),
-        top_global_exporters: splitCommaList(pick(world, ['top_global_exporters', 'top_5_global_exporters', 'top_exporters'], null)),
-        top_exporter_share_percent: parsePercent(pick(world, ['top_exporter_share'], null)),
-        growth_trend: pick(world, ['growth_trend'], null),
-        opportunity_level: pick(world, ['opportunity_level'], null),
-        reason: pick(world, ['reason'], null),
-        source: {
-          source_name: worldSource.source_name,
-          source_link: worldSource.source_link
-        },
-        raw_payload: world,
-        import_batch_id: importBatchId
-      }
-    },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
+  const worldRecords = recordsFromObjectOrArray(
+    pick(record, ['india_vs_world_share', 'world_position', 'product_world_position'], null)
   );
+
+  for (const world of worldRecords) {
+    const financialYear = financialYearFrom(world, financialYearFrom(record, product.latest_export_snapshot?.financial_year)) || UNSPECIFIED_FINANCIAL_YEAR;
+    if (financialYear === UNSPECIFIED_FINANCIAL_YEAR) {
+      warnings.push(`Stored world position for ${product.product_name} with unspecified financial_year`);
+    }
+    const worldSource = sourceFrom(world, source);
+
+    await ProductWorldPosition.findOneAndUpdate(
+      { product_id: product._id, financial_year: financialYear },
+      {
+        $set: {
+          product_id: product._id,
+          hs_code_6_digit: product.hs_code_6_digit,
+          itc_hs_8_digit: product.itc_hs_8_digit,
+          financial_year: financialYear,
+          india_export_value_usd_mn: parseNumber(pick(world, ['india_export_value_usd_mn', 'india_exports_usd_mn'], null)),
+          world_export_value_usd_mn: parseNumber(pick(world, ['world_export_value_usd_mn', 'global_export_value_usd_mn'], null)),
+          india_share_in_world_exports_percent: parsePercent(pick(world, ['india_share_in_world_exports_percent', 'india_global_share_percent'], null)),
+          india_global_rank: parseNumber(pick(world, ['india_global_rank', 'rank'], null)),
+          top_global_exporters: splitCommaList(pick(world, ['top_global_exporters', 'top_5_global_exporters', 'top_exporters'], null)),
+          top_exporter_share_percent: parsePercent(pick(world, ['top_exporter_share_percent', 'top_exporter_share'], null)),
+          growth_trend: pick(world, ['growth_trend'], null),
+          opportunity_level: pick(world, ['opportunity_level'], null),
+          reason: pick(world, ['reason'], null),
+          source: {
+            source_name: worldSource.source_name,
+            source_link: worldSource.source_link
+          },
+          raw_payload: world,
+          import_batch_id: importBatchId
+        }
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  }
 }
 
 function opportunityMatchesProduct(opportunity, product) {
@@ -396,7 +428,7 @@ async function upsertOpportunities(product, record, importBatchId, source, warni
           margin_potential: pick(opportunity, ['margin_potential'], null),
           buyer_availability: pick(opportunity, ['buyer_availability'], null),
           opportunity_score: parseNumber(pick(opportunity, ['opportunity_score', 'export_opportunity_score'], null)),
-          growth_percent: parsePercent(pick(opportunity, ['growth'], null)),
+          growth_percent: parsePercent(pick(opportunity, ['growth_percent', 'growth'], null)),
           no_of_indian_exporters: pick(opportunity, ['no_of_indian_exporters'], null),
           india_share_in_world_export: pick(opportunity, ['india_share_in_world_export'], null),
           required_certifications: pick(opportunity, ['required_certifications'], null),

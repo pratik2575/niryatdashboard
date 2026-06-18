@@ -27,6 +27,11 @@ function hasValue(value) {
   return value !== undefined && value !== null && value !== '' && (!Array.isArray(value) || value.length > 0);
 }
 
+function recordsFromObjectOrArray(section) {
+  if (Array.isArray(section)) return section.filter(isPlainObject);
+  return isPlainObject(section) ? [section] : [];
+}
+
 function mergeImportSections(primary = {}, fallback = {}) {
   const merged = { ...fallback };
   for (const [key, value] of Object.entries(primary || {})) {
@@ -109,7 +114,8 @@ function yearlyMetricsFrom(record) {
         risk_score: parseNumber(pick(item, ['risk_score'], null)),
         raw_payload: item
       }))
-      .filter((item) => item.financial_year);
+      .filter((item) => item.financial_year)
+      .sort((a, b) => b.financial_year.localeCompare(a.financial_year));
   }
 
   const metricSource = isPlainObject(explicit) ? mergeImportSections(record, explicit) : record;
@@ -128,7 +134,10 @@ function yearlyMetricsFrom(record) {
 
 function latestCountryMetric(record, yearlyMetrics) {
   const latest = record.latest_export_snapshot || record.latest_metrics || yearlyMetrics[0] || {};
-  const profile = isPlainObject(record.fastest_growing_profile) ? record.fastest_growing_profile : {};
+  const profileValue = record.fastest_growing_profile || record.fastest_growing_country_profile;
+  const profile = Array.isArray(profileValue)
+    ? profileValue.find(isPlainObject) || {}
+    : isPlainObject(profileValue) ? profileValue : {};
   return {
     financial_year: financialYearFrom(latest, financialYearFrom(record, financialYearFrom(profile, null))),
     rank: parseNumber(pick(latest, ['rank'], pick(record, ['rank'], pick(profile, ['rank'], null)))),
@@ -244,40 +253,43 @@ async function upsertBusinessInsights(country, record, importBatchId) {
 }
 
 async function upsertFastestProfile(country, record, importBatchId) {
-  const profile = pick(record, ['fastest_growing_profile', 'fastest_growing_country_profile'], null);
-  if (!profile) return;
-
-  const financialYear = financialYearFrom(profile, country.latest_export_snapshot?.financial_year);
-  if (!financialYear) return;
-  const profileSource = sourceFrom(profile, sourceFrom(record));
-
-  await FastestGrowingCountryProfile.findOneAndUpdate(
-    { country_id: country._id, financial_year: financialYear },
-    {
-      $set: {
-        country_id: country._id,
-        rank: parseNumber(pick(profile, ['rank'], null)),
-        financial_year: financialYear,
-        export_value_usd_mn: parseNumber(
-          pick(profile, ['export_value_usd_mn', 'export_usd_mn'], matchingValue(profile, /india_export.*fy.*usd.*mn/i, null))
-        ),
-        yoy_growth_percent: parsePercent(pick(profile, ['yoy_growth_percent', 'yoy_growth'], matchingValue(profile, /yoy_growth.*fy/i, null))),
-        three_year_cagr_percent: parsePercent(pick(profile, ['three_year_cagr_percent', 'three_year_cagr'], null)),
-        fastest_growing_products: splitCommaList(pick(profile, ['fastest_growing_products'], null)),
-        fta_trade_agreement: pick(profile, ['fta_trade_agreement', 'fta_trade_agreement_status'], null),
-        ease_of_entry_notes: pick(profile, ['ease_of_entry_notes'], null),
-        payment_risk: pick(profile, ['payment_risk'], null),
-        best_entry_strategy: pick(profile, ['best_entry_strategy'], null),
-        source: {
-          source_name: profileSource.source_name,
-          source_link: profileSource.source_link
-        },
-        raw_payload: profile,
-        import_batch_id: importBatchId
-      }
-    },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
+  const profiles = recordsFromObjectOrArray(
+    pick(record, ['fastest_growing_profile', 'fastest_growing_country_profile'], null)
   );
+
+  for (const profile of profiles) {
+    const financialYear = financialYearFrom(profile, country.latest_export_snapshot?.financial_year);
+    if (!financialYear) continue;
+    const profileSource = sourceFrom(profile, sourceFrom(record));
+
+    await FastestGrowingCountryProfile.findOneAndUpdate(
+      { country_id: country._id, financial_year: financialYear },
+      {
+        $set: {
+          country_id: country._id,
+          rank: parseNumber(pick(profile, ['rank'], null)),
+          financial_year: financialYear,
+          export_value_usd_mn: parseNumber(
+            pick(profile, ['export_value_usd_mn', 'export_usd_mn'], matchingValue(profile, /india_export.*fy.*usd.*mn/i, null))
+          ),
+          yoy_growth_percent: parsePercent(pick(profile, ['yoy_growth_percent', 'yoy_growth'], matchingValue(profile, /yoy_growth.*fy/i, null))),
+          three_year_cagr_percent: parsePercent(pick(profile, ['three_year_cagr_percent', 'three_year_cagr'], null)),
+          fastest_growing_products: splitCommaList(pick(profile, ['fastest_growing_products'], null)),
+          fta_trade_agreement: pick(profile, ['fta_trade_agreement', 'fta_trade_agreement_status'], null),
+          ease_of_entry_notes: pick(profile, ['ease_of_entry_notes'], null),
+          payment_risk: pick(profile, ['payment_risk'], null),
+          best_entry_strategy: pick(profile, ['best_entry_strategy'], null),
+          source: {
+            source_name: profileSource.source_name,
+            source_link: profileSource.source_link
+          },
+          raw_payload: profile,
+          import_batch_id: importBatchId
+        }
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  }
 }
 
 async function importOneCountry(record, importBatchId, summary) {

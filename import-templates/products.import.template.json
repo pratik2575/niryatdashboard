@@ -1,0 +1,173 @@
+{
+  "products": [
+    {
+      "hs_chapter": "04",
+      "chapter_name": "Dairy produce and edible animal products",
+      "chapter_description": "Products classified under HS chapter 04",
+      "hs_code_6_digit": "040900",
+      "heading_description": "Natural honey",
+      "hs_6_digit_description": "Natural honey",
+      "itc_hs_8_digit": "04090000",
+      "itc_hs_description": "Natural honey",
+      "product_name": "Natural Honey",
+      "product_category": "Food Products",
+      "sector": "Agriculture",
+      "product_description": "Natural honey exported from India",
+      "exportable_from_india": "Yes",
+      "export_policy": "Free",
+      "unit_of_quantity": "KG",
+      "latest_export_snapshot": {
+        "financial_year": "2024-25",
+        "export_value_usd_mn": 120.5,
+        "quantity": 50000,
+        "unit": "KG",
+        "yoy_growth_percent": 12.4,
+        "three_year_cagr_percent": 9.8,
+        "share_in_india_exports_percent": 0.15,
+        "india_global_share_percent": 4.2,
+        "global_export_value_usd_mn": 2869.1,
+        "india_global_rank": 7,
+        "top_global_exporter": "China"
+      },
+      "export_metrics": [
+        {
+          "financial_year": "2024-25",
+          "export_value_usd_mn": 120.5,
+          "quantity": 50000,
+          "unit": "KG",
+          "yoy_growth_percent": 12.4,
+          "three_year_cagr_percent": 9.8,
+          "share_in_india_exports_percent": 0.15
+        },
+        {
+          "financial_year": "2023-24",
+          "export_value_usd_mn": 107.2,
+          "quantity": 46200,
+          "unit": "KG",
+          "yoy_growth_percent": 8.1,
+          "three_year_cagr_percent": 7.4,
+          "share_in_india_exports_percent": 0.14
+        }
+      ],
+      "top_destinations": [
+        {
+          "country_name": "United States",
+          "iso_code": "US",
+          "region": "Northern America",
+          "continent": "North America",
+          "financial_year": "2024-25",
+          "destination_rank": 1,
+          "export_value_usd_mn": 35.4,
+          "export_quantity": 14500,
+          "unit": "KG",
+          "share_of_product_export_percent": 29.4,
+          "yoy_growth_percent": 14.2,
+          "three_year_cagr_percent": 10.5,
+          "avg_unit_value_usd_per_unit": 2.44,
+          "main_competitor_countries": [
+            "China",
+            "Argentina"
+          ],
+          "indias_competitive_advantage": "Competitive pricing and diverse honey varieties",
+          "source": {
+            "source_name": "DGCI&S",
+            "source_link": "https://example.com/destination-exports",
+            "notes": "Destination-level export data"
+          }
+        }
+      ],
+      "state_exports": [
+        {
+          "state_name": "Punjab",
+          "financial_year": "2024-25",
+          "export_value_usd_mn": 24.8,
+          "export_quantity": 10400,
+          "unit": "KG",
+          "state_share_in_india_export_percent": 20.6,
+          "yoy_growth_percent": 11.3,
+          "top_destination_countries": [
+            "United States",
+            "United Arab Emirates"
+          ],
+          "major_clusters": [
+            "Ludhiana",
+            "Amritsar"
+          ],
+          "source": {
+            "source_name": "State Export Report",
+            "source_link": "https://example.com/state-exports",
+            "notes": "State-level export data"
+          }
+        }
+      ],
+      "world_position": [
+        {
+          "financial_year": "2024-25",
+          "india_export_value_usd_mn": 120.5,
+          "world_export_value_usd_mn": 2869.1,
+          "india_share_in_world_exports_percent": 4.2,
+          "india_global_rank": 7,
+          "top_global_exporters": [
+            "China",
+            "New Zealand",
+            "Argentina"
+          ],
+          "top_exporter_share_percent": 18.5,
+          "growth_trend": "Growing",
+          "opportunity_level": "High",
+          "reason": "Global demand for natural and organic honey is increasing",
+          "source": {
+            "source_name": "International Trade Database",
+            "source_link": "https://example.com/world-trade"
+          }
+        }
+      ],
+      "opportunities": [
+        {
+          "opportunity_type": "high-growth-market",
+          "financial_year": "2024-25",
+          "rank": 1,
+          "export_value_usd_mn": 120.5,
+          "yoy_growth_percent": 12.4,
+          "three_year_cagr_percent": 9.8,
+          "india_global_share_percent": 4.2,
+          "top_destination_countries": [
+            "United States",
+            "United Arab Emirates"
+          ],
+          "competition_level": "Medium",
+          "entry_barrier_score": 4,
+          "compliance_difficulty_score": 6,
+          "margin_potential": "High",
+          "buyer_availability": "High",
+          "opportunity_score": 82,
+          "growth_percent": 12.4,
+          "no_of_indian_exporters": 145,
+          "india_share_in_world_export": 4.2,
+          "required_certifications": "FSSAI, Organic Certification",
+          "avg_order_size": "USD 25,000",
+          "logistics_complexity": "Low",
+          "reason_for_selection": "Strong demand and positive growth",
+          "recommended_exporter_type": "Small and medium exporters",
+          "source": {
+            "source_name": "Export Opportunity Study",
+            "source_link": "https://example.com/opportunities"
+          }
+        }
+      ],
+      "source": {
+        "source_name": "DGCI&S",
+        "source_link": "https://example.com/product-exports",
+        "notes": "Final annual export figures"
+      },
+      "source_sheets": [
+        "Product Master",
+        "Export Metrics",
+        "Destination Markets",
+        "State Exports",
+        "World Position",
+        "Opportunities"
+      ]
+    }
+  ]
+}
