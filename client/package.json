@@ -7,7 +7,8 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "vite build"
+    "check": "vite build",
+    "start": "vite"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.4",
