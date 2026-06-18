@@ -8,12 +8,22 @@ import {
 } from '../../models/index.js';
 import { escapeRegex } from '../../utils/cleaning.js';
 import { isObjectId } from '../../utils/object-id.js';
+import {
+  formatProduct,
+  formatProductSummary,
+  groupProductDestinations,
+  groupStateExports,
+  publicFields
+} from '../catalog-response.js';
 
 async function findProduct(id) {
   const filters = isObjectId(id)
     ? [{ _id: id }]
     : [{ product_uid: id }, { itc_hs_8_digit: id }, { product_name_slug: id }];
-  return Product.findOne({ $or: filters }).lean();
+  return Product.findOne({ $or: filters })
+    .populate('hs_chapter_id', 'hs_chapter chapter_name description')
+    .populate('hs_code_id', 'hs_code_6_digit hs_heading_4_digit heading_description hs_6_digit_description')
+    .lean();
 }
 
 export default async function productRoutes(app) {
@@ -38,14 +48,21 @@ export default async function productRoutes(app) {
       Product.countDocuments(query)
     ]);
 
-    return { success: true, items, page, limit, total };
+    return {
+      success: true,
+      items: items.map(formatProductSummary),
+      page,
+      limit,
+      total,
+      total_pages: Math.ceil(total / limit)
+    };
   });
 
   app.get('/by-hs/:hsCode', async (request) => {
     const hsCode = String(request.params.hsCode);
     const query = hsCode.length === 2 ? { hs_chapter: hsCode } : { hs_code_6_digit: hsCode };
     const items = await Product.find(query).sort({ product_name: 1 }).lean();
-    return { success: true, items };
+    return { success: true, items: items.map(formatProductSummary), total: items.length };
   });
 
   app.get('/:id', async (request, reply) => {
@@ -62,12 +79,19 @@ export default async function productRoutes(app) {
 
     return {
       success: true,
-      product,
-      export_years: exportYears,
-      top_destinations: topDestinations,
-      state_exports: stateExports,
-      world_position: worldPosition,
-      opportunities
+      data: {
+        product: formatProduct(product),
+        export_history: exportYears.map((item) => publicFields(item, ['hs_code_6_digit', 'itc_hs_8_digit'])),
+        destinations: groupProductDestinations(topDestinations),
+        states: groupStateExports(stateExports),
+        world_position: worldPosition.map((item) => publicFields(item, ['hs_code_6_digit', 'itc_hs_8_digit'])),
+        opportunities: opportunities.map((item) => publicFields(item, [
+          'hs_code_6_digit',
+          'itc_hs_8_digit',
+          'product_name',
+          'sector'
+        ]))
+      }
     };
   });
 
@@ -75,27 +99,42 @@ export default async function productRoutes(app) {
     const product = await findProduct(request.params.id);
     if (!product) return reply.status(404).send({ success: false, error: 'Product not found' });
     const items = await ProductCountryExport.find({ product_id: product._id }).populate('country_id').sort({ financial_year: -1 }).lean();
-    return { success: true, items };
+    const destinations = groupProductDestinations(items);
+    return { success: true, items: destinations, total: destinations.length, data_points: items.length };
   });
 
   app.get('/:id/states', async (request, reply) => {
     const product = await findProduct(request.params.id);
     if (!product) return reply.status(404).send({ success: false, error: 'Product not found' });
     const items = await StateProductExport.find({ product_id: product._id }).sort({ financial_year: -1 }).lean();
-    return { success: true, items };
+    const states = groupStateExports(items);
+    return { success: true, items: states, total: states.length, data_points: items.length };
   });
 
   app.get('/:id/world-position', async (request, reply) => {
     const product = await findProduct(request.params.id);
     if (!product) return reply.status(404).send({ success: false, error: 'Product not found' });
     const items = await ProductWorldPosition.find({ product_id: product._id }).sort({ financial_year: -1 }).lean();
-    return { success: true, items };
+    return {
+      success: true,
+      items: items.map((item) => publicFields(item, ['hs_code_6_digit', 'itc_hs_8_digit'])),
+      total: items.length
+    };
   });
 
   app.get('/:id/opportunities', async (request, reply) => {
     const product = await findProduct(request.params.id);
     if (!product) return reply.status(404).send({ success: false, error: 'Product not found' });
     const items = await Opportunity.find({ product_id: product._id }).sort({ opportunity_score: -1 }).lean();
-    return { success: true, items };
+    return {
+      success: true,
+      items: items.map((item) => publicFields(item, [
+        'hs_code_6_digit',
+        'itc_hs_8_digit',
+        'product_name',
+        'sector'
+      ])),
+      total: items.length
+    };
   });
 }

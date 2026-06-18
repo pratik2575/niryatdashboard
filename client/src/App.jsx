@@ -191,14 +191,14 @@ function ProductTable({ items }) {
       </thead>
       <tbody>
         {items.map((product) => (
-          <tr key={product._id}>
-            <td><strong>{product.product_name}</strong></td>
+          <tr key={product.id}>
+            <td><strong>{product.name}</strong></td>
             <td>{product.hs_code_6_digit}</td>
             <td>{product.itc_hs_8_digit || 'N/A'}</td>
             <td>{product.sector || 'N/A'}</td>
-            <td>{product.product_category || 'N/A'}</td>
-            <td>{product.latest_export_snapshot?.financial_year || 'N/A'}</td>
-            <td>{product.latest_export_snapshot?.export_value_usd_mn ?? 'N/A'}</td>
+            <td>{product.category || 'N/A'}</td>
+            <td>{product.latest_export?.financial_year || 'N/A'}</td>
+            <td>{product.latest_export?.export_value_usd_mn ?? 'N/A'}</td>
           </tr>
         ))}
       </tbody>
@@ -224,14 +224,14 @@ function CountryTable({ items }) {
       </thead>
       <tbody>
         {items.map((country) => (
-          <tr key={country._id}>
-            <td><strong>{country.country_name}</strong></td>
+          <tr key={country.id}>
+            <td><strong>{country.name}</strong></td>
             <td>{country.iso_code || 'N/A'}</td>
             <td>{country.region || 'N/A'}</td>
             <td>{country.continent || 'N/A'}</td>
-            <td>{country.latest_export_snapshot?.financial_year || 'N/A'}</td>
-            <td>{country.latest_export_snapshot?.rank ?? 'N/A'}</td>
-            <td>{country.latest_export_snapshot?.export_value_usd_mn ?? 'N/A'}</td>
+            <td>{country.latest_export?.financial_year || 'N/A'}</td>
+            <td>{country.latest_export?.rank ?? 'N/A'}</td>
+            <td>{country.latest_export?.export_value_usd_mn ?? 'N/A'}</td>
           </tr>
         ))}
       </tbody>

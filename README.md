@@ -104,6 +104,28 @@ Country uploads can be sent as a direct array of country objects, or as an objec
 - `GET /api/search/products?q=`
 - `GET /api/search/countries?q=`
 
+### Catalog response format
+
+Product and country list endpoints return compact summaries in `items` plus `page`, `limit`, `total`, and `total_pages`.
+The detail endpoints return normalized page-ready data:
+
+```json
+{
+  "success": true,
+  "data": {
+    "product": {},
+    "export_history": [],
+    "destinations": [],
+    "states": [],
+    "world_position": [],
+    "opportunities": []
+  }
+}
+```
+
+Country detail uses `country`, `export_history`, `products`, `business_insights`, and `growth_profile`.
+Destination, state, and country-product records are grouped by entity with an `export_history` array, preventing identity and classification data from being repeated for each financial year. Internal import fields, raw payloads, embeddings, and database relationship IDs are not exposed.
+
 ## Data Model Notes
 
 Uploaded JSON is normalized into separate MongoDB collections:
