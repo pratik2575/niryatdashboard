@@ -83,7 +83,8 @@ const knownAggregates = new Map([
   ['INSTALLATIONS IN INTERNATIONAL WATERS', 'Installations in International Waters'],
   ['UNSPECIFIED', 'Unspecified'],
   ['NETHERLANDANTIL', 'Netherlands Antilles'],
-  ['UNION OF SERBIA & MONTENEGRO', 'Serbia and Montenegro']
+  ['UNION OF SERBIA & MONTENEGRO', 'Serbia and Montenegro'],
+  ['PANAMA C Z', 'Panama Canal Zone']
 ]);
 
 const forcedIso3 = new Map(Object.entries({
@@ -95,7 +96,9 @@ const forcedIso3 = new Map(Object.entries({
   MOLDOVA: 'MDA',
   SYRIA: 'SYR',
   'VATICAN CITY': 'VAT',
-  'VIRGIN IS US': 'VIR'
+  'VIRGIN IS US': 'VIR',
+  'HEARD MACDONALD': 'HMD',
+  'ST PIERRE': 'SPM'
 }));
 
 export function resolveTradeStatGeography(reportedName) {

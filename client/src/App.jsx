@@ -162,6 +162,7 @@ function IndiaCountryExportsPage() {
   const [preview, setPreview] = useState(null);
   const [geographies, setGeographies] = useState([]);
   const [mappings, setMappings] = useState({});
+  const [excludedNames, setExcludedNames] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
@@ -195,7 +196,7 @@ function IndiaCountryExportsPage() {
 
   async function uploadPreview(event) {
     event.preventDefault();
-    setBusy(true); setError(''); setResult(null); setPreview(null); setMappings({});
+    setBusy(true); setError(''); setResult(null); setPreview(null); setMappings({}); setExcludedNames([]);
     try {
       if (!file) throw new Error('Choose the TradeStat .xlsx file');
       const body = new FormData();
@@ -211,10 +212,10 @@ function IndiaCountryExportsPage() {
   async function confirmPreview() {
     setBusy(true); setError('');
     try {
-      const unresolved = preview.unresolved_names || [];
+      const unresolved = (preview.unresolved_names || []).filter((name) => !excludedNames.includes(name));
       if (unresolved.some((name) => !mappings[name])) throw new Error('Map every unresolved country before confirming');
       const mappingPayload = unresolved.map((name) => ({ source_name: name, geography_id: mappings[name] }));
-      const response = await api.confirmIndiaCountryExports(preview.batch_id, mappingPayload);
+      const response = await api.confirmIndiaCountryExports(preview.batch_id, mappingPayload, excludedNames);
       setResult(response); setPreview(null); setFile(null); loadRecords();
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
@@ -222,7 +223,7 @@ function IndiaCountryExportsPage() {
 
   async function cancelPreview() {
     setBusy(true); setError('');
-    try { await api.cancelIndiaCountryExportPreview(preview.batch_id); setPreview(null); setMappings({}); }
+    try { await api.cancelIndiaCountryExportPreview(preview.batch_id); setPreview(null); setMappings({}); setExcludedNames([]); }
     catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
@@ -247,7 +248,7 @@ function IndiaCountryExportsPage() {
         <div><span>Unchanged</span><strong>{preview.preview.unchanged}</strong></div>
         <div><span>Skipped</span><strong>{preview.preview.skipped}</strong></div>
       </div>
-      {(preview.unresolved_names || []).length ? <div className="mapping-list"><h2>Required country mappings</h2>{preview.unresolved_names.map((name) => <label key={name}>{name}<SearchableGeographySelect options={geographies} value={mappings[name] || ''} onChange={(geographyId) => setMappings({ ...mappings, [name]: geographyId })} /></label>)}</div> : <p className="success-note">All country names resolved successfully.</p>}
+      {(preview.unresolved_names || []).length ? <div className="mapping-list"><h2>Required country mappings</h2>{preview.unresolved_names.filter((name) => !excludedNames.includes(name)).map((name) => <div className="mapping-row" key={name}><strong>{name}</strong><SearchableGeographySelect options={geographies} value={mappings[name] || ''} onChange={(geographyId) => setMappings({ ...mappings, [name]: geographyId })} /><button type="button" className="remove-mapping-button" onClick={() => { if (window.confirm(`Remove “${name}” from this import? The source workbook will remain unchanged.`)) { setExcludedNames([...excludedNames, name]); const next = { ...mappings }; delete next[name]; setMappings(next); } }}>Remove record</button></div>)}{excludedNames.length ? <div className="excluded-records"><strong>Excluded from this import ({excludedNames.length})</strong>{excludedNames.map((name) => <span key={name}>{name}<button type="button" className="ghost-button" onClick={() => setExcludedNames(excludedNames.filter((item) => item !== name))}>Undo</button></span>)}</div> : null}</div> : <p className="success-note">All country names resolved successfully.</p>}
       {preview.warnings?.length ? <pre>{preview.warnings.join('\n')}</pre> : null}
       <div className="action-row"><button type="button" disabled={busy} onClick={confirmPreview}>Confirm import</button><button type="button" disabled={busy} className="danger-button" onClick={cancelPreview}>Cancel preview</button></div>
     </div> : null}

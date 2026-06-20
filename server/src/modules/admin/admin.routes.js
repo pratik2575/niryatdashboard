@@ -43,7 +43,10 @@ export default async function adminRoutes(app) {
   });
 
   app.post('/imports/:id/confirm', async (request) => {
-    return confirmIndiaCountryExports(request.params.id, { mappings: request.body?.mappings || [] });
+    return confirmIndiaCountryExports(request.params.id, {
+      mappings: request.body?.mappings || [],
+      excludedSourceNames: request.body?.excluded_source_names || []
+    });
   });
 
   app.delete('/imports/:id', async (request) => cancelIndiaCountryExportPreview(request.params.id));

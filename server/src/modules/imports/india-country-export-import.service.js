@@ -40,9 +40,20 @@ function parseFinancialYear(value) {
 }
 
 function parseReportDate(value) {
-  const match = text(value).match(/Report Generated on:\s*(\d{2})\/(\d{2})\/(\d{4})/i);
-  if (!match) return null;
-  return new Date(Date.UTC(Number(match[3]), Number(match[2]) - 1, Number(match[1])));
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
+  }
+  const source = text(value);
+  const dayFirst = source.match(/Report Generated on\s*:?\s*(\d{1,2})\s*[/.\-]\s*(\d{1,2})\s*[/.\-]\s*(\d{4})/i);
+  if (dayFirst) return new Date(Date.UTC(Number(dayFirst[3]), Number(dayFirst[2]) - 1, Number(dayFirst[1])));
+  const yearFirst = source.match(/Report Generated on\s*:?\s*(\d{4})\s*[/.\-]\s*(\d{1,2})\s*[/.\-]\s*(\d{1,2})/i);
+  if (yearFirst) return new Date(Date.UTC(Number(yearFirst[1]), Number(yearFirst[2]) - 1, Number(yearFirst[3])));
+  const writtenDate = source.match(/Report Generated on\s*:?\s*([A-Za-z]+\s+\d{1,2},?\s+\d{4}|\d{1,2}\s+[A-Za-z]+\s+\d{4})/i);
+  if (writtenDate) {
+    const parsed = new Date(writtenDate[1]);
+    if (!Number.isNaN(parsed.getTime())) return new Date(Date.UTC(parsed.getFullYear(), parsed.getMonth(), parsed.getDate()));
+  }
+  return null;
 }
 
 function calculateGrowth(current, previous) {
@@ -72,9 +83,10 @@ export function parseIndiaCountryExportRows(rows, fileName = 'upload.xlsx') {
   if (!/^TradeStat->Eidb->Export->Country-wise$/i.test(text(rows[0]?.[0]))) {
     throw httpError('Workbook title must be “TradeStat->Eidb->Export->Country-wise”');
   }
-  if (!/Values in US \$ Million/i.test(text(rows[1]?.[0]))) throw httpError('Workbook values must be in US $ Million');
-  const reportDate = parseReportDate(rows[1]?.[0]);
-  if (!reportDate) throw httpError('Could not detect the report-generated date');
+  const reportLine = rows.slice(0, 5).flat().find((cell) => /Report Generated on/i.test(text(cell))) ?? rows[1]?.[0];
+  if (!/Values in US \$ Million/i.test(text(reportLine))) throw httpError('Workbook values must be in US $ Million');
+  const reportDate = parseReportDate(reportLine);
+  if (!reportDate) throw httpError(`Could not detect the report-generated date from “${text(reportLine)}”`);
 
   const headerIndex = rows.findIndex((row) => text(row?.[0]).toLowerCase() === 's.no.' && text(row?.[1]).toLowerCase() === 'country/region');
   if (headerIndex < 0) throw httpError('Could not find the seven-column country export header');
@@ -173,7 +185,7 @@ export function replacementDecision(existing, incoming) {
   return 'update';
 }
 
-async function geographyContext(parsed, manualMappings = new Map(), persist = false) {
+async function geographyContext(parsed, manualMappings = new Map(), persist = false, excludedSourceNames = new Set()) {
   const geographies = await Geography.find().lean();
   const byKey = new Map(geographies.map((item) => [item.key, item]));
   const byAlias = new Map();
@@ -182,6 +194,7 @@ async function geographyContext(parsed, manualMappings = new Map(), persist = fa
   const unresolved = [];
 
   for (const record of parsed.records) {
+    if (excludedSourceNames.has(record.sourceName)) continue;
     const aliasMatch = byAlias.get(record.sourceName.toUpperCase());
     const mappedId = manualMappings.get(record.sourceName);
     let geography = aliasMatch || null;
@@ -294,12 +307,17 @@ export async function confirmIndiaCountryExports(batchId, options = {}) {
   if (!batch || batch.import_type !== 'india_country_exports') throw httpError('India country export preview not found', 404);
   if (batch.status !== 'awaiting_confirmation') throw httpError('Only awaiting-confirmation previews can be confirmed', 409);
   const mappings = new Map((options.mappings || []).map((item) => [String(item.source_name), String(item.geography_id)]));
+  const excludedSourceNames = new Set((options.excludedSourceNames || []).map(String));
+  if (excludedSourceNames.has("India's Total Export")) throw httpError('The India total row cannot be excluded', 409);
   const buffer = await readRetainedSourceFile(batch.source_file);
   const parsed = await parseIndiaCountryExportWorkbook(buffer, batch.file_name);
   if (parsed.currentYear.label !== batch.financial_year || parsed.reportDate.getTime() !== new Date(batch.source_report_date).getTime()) {
     throw httpError('Retained workbook metadata no longer matches the preview', 409);
   }
-  const context = await geographyContext(parsed, mappings, true);
+  const validSourceNames = new Set(parsed.records.map((item) => item.sourceName));
+  const unknownExclusions = [...excludedSourceNames].filter((name) => !validSourceNames.has(name));
+  if (unknownExclusions.length) throw httpError(`Excluded source rows do not exist: ${unknownExclusions.join(', ')}`, 409);
+  const context = await geographyContext(parsed, mappings, true, excludedSourceNames);
   if (context.unresolved.length) throw httpError(`Map all unresolved geographies before confirmation: ${context.unresolved.join(', ')}`, 409);
 
   const ids = context.resolved.map((item) => String(item.geography._id));
@@ -309,7 +327,7 @@ export async function confirmIndiaCountryExports(batchId, options = {}) {
     destination_geography_id: { $in: ids }
   }).lean();
   const existingMap = new Map(existing.map((item) => [String(item.destination_geography_id), item]));
-  const summary = { created: 0, updated: 0, skipped: 0, errors: 0 };
+  const summary = { created: 0, updated: 0, skipped: excludedSourceNames.size, errors: 0 };
 
   for (const item of context.resolved) {
     const incoming = {
@@ -348,9 +366,18 @@ export async function confirmIndiaCountryExports(batchId, options = {}) {
     })));
   }
 
+  if (excludedSourceNames.size) {
+    await saveIssues(batch._id, [...excludedSourceNames].map((name) => ({
+      severity: 'warning',
+      code: 'EXCLUDED_BY_ADMIN',
+      message: `“${name}” was excluded by the administrator during confirmation`
+    })));
+  }
+
   batch.status = 'completed';
   batch.validation_summary = summary;
   batch.unresolved_geographies = [];
+  batch.preview_summary = { ...batch.preview_summary, excluded_count: excludedSourceNames.size };
   batch.completed_at = new Date();
   await batch.save();
   return { success: true, batch_id: batch._id, status: batch.status, financial_year: batch.financial_year, summary };

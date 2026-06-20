@@ -53,7 +53,10 @@ export const api = {
   importCatalog: (payload) => request('/api/admin/import/catalog', { method: 'POST', body: payload }),
   importTradeMap: (payload) => request('/api/admin/import/trade-map', { method: 'POST', body: payload }),
   previewIndiaCountryExports: (payload) => request('/api/admin/import/india-country-exports/preview', { method: 'POST', body: payload }),
-  confirmIndiaCountryExports: (id, mappings) => request(`/api/admin/imports/${id}/confirm`, { method: 'POST', body: { mappings } }),
+  confirmIndiaCountryExports: (id, mappings, excludedSourceNames = []) => request(`/api/admin/imports/${id}/confirm`, {
+    method: 'POST',
+    body: { mappings, excluded_source_names: excludedSourceNames }
+  }),
   cancelIndiaCountryExportPreview: (id) => request(`/api/admin/imports/${id}`, { method: 'DELETE' }),
   adminIndiaCountryExports: (params = '') => request(`/api/admin/india-country-exports${params}`),
   adminGeographies: (params = '') => request(`/api/admin/geographies${params}`),

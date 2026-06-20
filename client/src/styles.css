@@ -374,9 +374,38 @@ pre {
   gap: 14px;
 }
 
-.mapping-list label {
-  grid-template-columns: minmax(180px, 1fr) minmax(260px, 2fr);
+.mapping-row {
   align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(160px, 1fr) minmax(260px, 2fr) auto;
+}
+
+.remove-mapping-button {
+  background: #fff;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.excluded-records {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.excluded-records span {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.excluded-records .ghost-button {
+  color: #9a3412;
+  margin: 0;
+  min-height: 30px;
 }
 
 .searchable-select {
@@ -478,7 +507,7 @@ pre {
     width: 100%;
   }
 
-  .mapping-list label {
+  .mapping-row {
     grid-template-columns: 1fr;
   }
 }

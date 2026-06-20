@@ -87,6 +87,19 @@ test('TradeStat parser rejects malformed years and missing totals', () => {
   );
 });
 
+test('TradeStat parser accepts common report-date formats', () => {
+  const variants = [
+    'Report Generated on: 19-06-2026 - Values in US $ Million',
+    'Report Generated on: 2026-06-19 - Values in US $ Million',
+    'Report Generated on: 19 June 2026 - Values in US $ Million'
+  ];
+  variants.forEach((reportLine) => {
+    const rows = tradeStatRows();
+    rows[1][0] = reportLine;
+    assert.equal(parseIndiaCountryExportRows(rows).reportDate.toISOString(), '2026-06-19T00:00:00.000Z');
+  });
+});
+
 test('TradeStat aliases resolve to canonical geographies', () => {
   assert.equal(resolveTradeStatGeography('U S A').iso3, 'USA');
   assert.equal(resolveTradeStatGeography('U ARAB EMTS').iso3, 'ARE');
