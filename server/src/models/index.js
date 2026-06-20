@@ -72,6 +72,29 @@ exportSnapshotSchema.index({ product_id: 1, year: -1, rank: 1 });
 exportSnapshotSchema.index({ geography_id: 1, year: -1 });
 exportSnapshotSchema.index({ hscode: 1, year: -1 });
 
+const indiaDestinationExportAnnualSchema = new Schema(
+  {
+    destination_geography_id: { type: Schema.Types.ObjectId, ref: 'Geography', required: true },
+    financial_year: { type: String, required: true },
+    fiscal_year_start: { type: Number, required: true, min: 1900, max: 2200 },
+    export_value_usd_million: { type: Number, required: true, min: 0 },
+    share_percent: { type: Number, required: true, min: 0 },
+    yoy_growth_percent: { type: Number, default: null },
+    rank: { type: Number, default: null },
+    period_status: { type: String, enum: ['ytd', 'final'], required: true },
+    source_name_as_reported: { type: String, required: true },
+    source_report_date: { type: Date, required: true },
+    import_batch_id: { type: Schema.Types.ObjectId, ref: 'ImportBatch', required: true }
+  },
+  timestamps
+);
+indiaDestinationExportAnnualSchema.index(
+  { destination_geography_id: 1, fiscal_year_start: 1 },
+  { unique: true }
+);
+indiaDestinationExportAnnualSchema.index({ fiscal_year_start: -1, rank: 1 });
+indiaDestinationExportAnnualSchema.index({ fiscal_year_start: -1, export_value_usd_million: -1 });
+
 const sourceFileSchema = new Schema(
   {
     storage_id: { type: Schema.Types.ObjectId, required: true },
@@ -85,15 +108,21 @@ const sourceFileSchema = new Schema(
 );
 
 const importBatchSchema = new Schema({
-  import_type: { type: String, enum: ['hs_catalog', 'trade_map_exports'], required: true },
+  import_type: { type: String, enum: ['hs_catalog', 'trade_map_exports', 'india_country_exports'], required: true },
   file_name: { type: String, default: null },
   source_file: { type: sourceFileSchema, default: null },
   uploaded_by: { type: Schema.Types.ObjectId, default: null },
   target_hscode: { type: String, default: null },
   snapshot_year: { type: Number, default: null },
+  financial_year: { type: String, default: null },
+  fiscal_year_start: { type: Number, default: null },
+  source_report_date: { type: Date, default: null },
+  period_status: { type: String, enum: ['ytd', 'final'], default: null },
+  preview_summary: { type: Schema.Types.Mixed, default: null },
+  unresolved_geographies: { type: [String], default: [] },
   status: {
     type: String,
-    enum: ['pending', 'processing', 'completed', 'failed', 'partial'],
+    enum: ['pending', 'processing', 'awaiting_confirmation', 'completed', 'failed', 'partial', 'cancelled'],
     default: 'pending'
   },
   record_count: { type: Number, default: 0 },
@@ -111,6 +140,8 @@ const importBatchSchema = new Schema({
 });
 importBatchSchema.index({ created_at: -1 });
 importBatchSchema.index({ import_type: 1, target_hscode: 1, snapshot_year: -1 });
+importBatchSchema.index({ import_type: 1, fiscal_year_start: -1, source_report_date: -1 });
+importBatchSchema.index({ 'source_file.sha256': 1, import_type: 1, status: 1 });
 
 const importIssueSchema = new Schema({
   import_batch_id: { type: Schema.Types.ObjectId, ref: 'ImportBatch', required: true },
@@ -136,6 +167,11 @@ adminUserSchema.index({ email: 1 }, { unique: true });
 export const HsProduct = mongoose.model('HsProduct', hsProductSchema, 'hs_products');
 export const Geography = mongoose.model('Geography', geographySchema, 'geographies');
 export const ExportSnapshot = mongoose.model('ExportSnapshot', exportSnapshotSchema, 'export_snapshots');
+export const IndiaDestinationExportAnnual = mongoose.model(
+  'IndiaDestinationExportAnnual',
+  indiaDestinationExportAnnualSchema,
+  'india_destination_export_annual'
+);
 export const ImportBatch = mongoose.model('ImportBatch', importBatchSchema, 'import_batches_v2');
 export const ImportIssue = mongoose.model('ImportIssue', importIssueSchema, 'import_issues');
 export const AdminUser = mongoose.model('AdminUser', adminUserSchema, 'admin_users');

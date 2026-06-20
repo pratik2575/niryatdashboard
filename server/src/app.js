@@ -7,6 +7,7 @@ import adminRoutes from './modules/admin/admin.routes.js';
 import productRoutes from './modules/products/product.routes.js';
 import countryRoutes from './modules/countries/country.routes.js';
 import searchRoutes from './modules/search/search.routes.js';
+import indiaExportRoutes from './modules/india-exports/india-export.routes.js';
 
 export async function buildApp() {
   const app = Fastify({
@@ -29,6 +30,7 @@ export async function buildApp() {
   await app.register(productRoutes, { prefix: '/api/products' });
   await app.register(countryRoutes, { prefix: '/api/countries' });
   await app.register(searchRoutes, { prefix: '/api/search' });
+  await app.register(indiaExportRoutes, { prefix: '/api/india-exports' });
 
   app.setErrorHandler((error, request, reply) => {
     request.log.error(error);

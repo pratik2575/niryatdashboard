@@ -38,6 +38,22 @@ const regionNames = new Set([
   'latin america and the caribbean'
 ]);
 
+export function resolveIso3(iso3, fallbackName = iso3) {
+  const code = String(iso3 || '').toUpperCase();
+  const iso2 = isoCountries.alpha3ToAlpha2(code);
+  if (!iso2) return null;
+  const name = isoCountries.getName(code, 'en') || fallbackName;
+  return {
+    key: code,
+    name,
+    slug: slugify(name),
+    type: territoryCodes.has(code) ? 'territory' : 'country',
+    iso2,
+    iso3: code,
+    resolved: true
+  };
+}
+
 export function resolveGeography(reportedName) {
   const name = String(reportedName || '').trim();
   const normalized = name.toLocaleLowerCase('en');
@@ -49,16 +65,7 @@ export function resolveGeography(reportedName) {
     || isoCountries.getAlpha3Code(name, 'en')
     || null;
   if (iso3) {
-    const iso2 = isoCountries.alpha3ToAlpha2(iso3);
-    return {
-      key: iso3,
-      name: isoCountries.getName(iso3, 'en') || name,
-      slug: slugify(isoCountries.getName(iso3, 'en') || name),
-      type: territoryCodes.has(iso3) ? 'territory' : 'country',
-      iso2,
-      iso3,
-      resolved: true
-    };
+    return resolveIso3(iso3, name);
   }
 
   const type = regionNames.has(normalized) ? 'region' : normalized.includes('zone') ? 'aggregate' : 'other';
@@ -67,6 +74,10 @@ export function resolveGeography(reportedName) {
 
 export async function upsertGeography(reportedName) {
   const resolved = resolveGeography(reportedName);
+  return upsertResolvedGeography(resolved, reportedName);
+}
+
+export async function upsertResolvedGeography(resolved, reportedName = resolved.name) {
   const geography = await Geography.findOneAndUpdate(
     { key: resolved.key },
     {

@@ -1,4 +1,4 @@
-import { ExportSnapshot, Geography } from '../../models/index.js';
+import { ExportSnapshot, Geography, IndiaDestinationExportAnnual } from '../../models/index.js';
 import { escapeRegex } from '../../utils/cleaning.js';
 import { isObjectId } from '../../utils/object-id.js';
 
@@ -34,5 +34,13 @@ export default async function countryRoutes(app) {
     if (request.query.year) query.year = Number(request.query.year);
     const snapshots = await ExportSnapshot.find(query).populate('product_id').sort({ year: -1, hscode: 1 }).lean();
     return { success: true, data: { geography, export_metrics: snapshots } };
+  });
+
+  app.get('/:id/india-export-history', async (request, reply) => {
+    const geography = await findGeography(request.params.id);
+    if (!geography) return reply.status(404).send({ success: false, error: 'Geography not found' });
+    const items = await IndiaDestinationExportAnnual.find({ destination_geography_id: geography._id })
+      .sort({ fiscal_year_start: -1 }).lean();
+    return { success: true, geography, items, total: items.length };
   });
 }

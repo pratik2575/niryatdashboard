@@ -3,6 +3,11 @@ import test from 'node:test';
 import { normalizeCatalogRecord, validateCatalogRecord } from '../src/modules/imports/catalog-import.service.js';
 import { resolveGeography } from '../src/modules/imports/geography.service.js';
 import { parseTradeMapWorkbook } from '../src/modules/imports/trade-map-import.service.js';
+import {
+  parseIndiaCountryExportRows,
+  replacementDecision
+} from '../src/modules/imports/india-country-export-import.service.js';
+import { resolveTradeStatGeography } from '../src/modules/imports/tradestat-geography.service.js';
 
 test('catalog records preserve leading zeroes according to level', () => {
   const chapter = normalizeCatalogRecord({ section: 'I', hscode: 1, description: 'Animals', parent: 'TOTAL', level: 2 });
@@ -42,4 +47,65 @@ test('Trade Map names resolve to canonical ISO geographies and aggregates', () =
   assert.equal(resolveGeography('Macao, China').type, 'territory');
   assert.equal(resolveGeography('World').type, 'world');
   assert.equal(resolveGeography('Free Zones').type, 'aggregate');
+});
+
+function tradeStatRows(overrides = {}) {
+  const header = overrides.header || ['S.No.', 'Country/Region', '2024-2025', '%Share', '2025-2026', '%Share', '%Growth'];
+  const total = overrides.total || ["India's Total Export", "India's Total Export", 437704.58, '', 441745.86, '', 0.92];
+  return [
+    ['TradeStat->Eidb->Export->Country-wise'],
+    ['Report Generated on: 19/06/2026 -  Values in US $ Million'],
+    header,
+    [1, 'AFGHANISTAN', 318.91, 0.0729, 253.63, 0.0574, -20.47],
+    [2, 'U S A', 0, 0, 1, 0.0002, ''],
+    total
+  ];
+}
+
+test('TradeStat selected year creates one record per row and uses previous year only for growth', () => {
+  const parsed = parseIndiaCountryExportRows(tradeStatRows());
+  assert.equal(parsed.currentYear.label, '2025-2026');
+  assert.equal(parsed.previousYear.label, '2024-2025');
+  assert.equal(parsed.destinationCount, 2);
+  assert.equal(parsed.records.length, 3);
+  assert.equal(parsed.records[0].currentValue, 253.63);
+  assert.equal(parsed.records[0].yoyGrowthPercent, -20.469725);
+  assert.equal('previousValue' in parsed.records[0], false);
+  assert.equal(parsed.records[1].yoyGrowthPercent, null);
+  assert.equal(parsed.records.at(-1).sourceName, "India's Total Export");
+  assert.equal(parsed.records.at(-1).sharePercent, 100);
+});
+
+test('TradeStat parser rejects malformed years and missing totals', () => {
+  assert.throws(
+    () => parseIndiaCountryExportRows(tradeStatRows({ header: ['S.No.', 'Country/Region', '2023-2024', '%Share', '2025-2026', '%Share', '%Growth'] })),
+    /consecutive financial years/
+  );
+  assert.throws(
+    () => parseIndiaCountryExportRows(tradeStatRows().slice(0, -1)),
+    /Total Export row/
+  );
+});
+
+test('TradeStat aliases resolve to canonical geographies', () => {
+  assert.equal(resolveTradeStatGeography('U S A').iso3, 'USA');
+  assert.equal(resolveTradeStatGeography('U ARAB EMTS').iso3, 'ARE');
+  assert.equal(resolveTradeStatGeography('BR VIRGN IS').iso3, 'VGB');
+  assert.equal(resolveTradeStatGeography('UNSPECIFIED').type, 'aggregate');
+  assert.equal(resolveTradeStatGeography("India's Total Export").type, 'world');
+});
+
+test('country export revision rules protect newer and final records', () => {
+  const existing = {
+    period_status: 'final',
+    source_report_date: new Date('2026-06-19'),
+    export_value_usd_million: 100,
+    share_percent: 2,
+    yoy_growth_percent: 5
+  };
+  assert.equal(replacementDecision(existing, { ...existing, period_status: 'ytd', source_report_date: new Date('2026-07-01') }), 'skip_final_downgrade');
+  assert.equal(replacementDecision(existing, { ...existing, source_report_date: new Date('2026-06-18') }), 'skip_older_report');
+  assert.equal(replacementDecision(existing, { ...existing }), 'unchanged');
+  assert.equal(replacementDecision(existing, { ...existing, export_value_usd_million: 101 }), 'update');
+  assert.equal(replacementDecision(null, existing), 'create');
 });

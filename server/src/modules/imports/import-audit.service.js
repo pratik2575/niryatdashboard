@@ -2,6 +2,10 @@ import crypto from 'node:crypto';
 import mongoose from 'mongoose';
 import { ImportIssue } from '../../models/index.js';
 
+export function sourceFileSha256(buffer) {
+  return crypto.createHash('sha256').update(buffer).digest('hex');
+}
+
 export async function retainSourceFile(buffer, { fileName, mimeType }) {
   if (!buffer) return null;
   if (!mongoose.connection.db) throw new Error('Database connection is required to retain import files');
@@ -10,7 +14,7 @@ export async function retainSourceFile(buffer, { fileName, mimeType }) {
   const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName });
   const stream = bucket.openUploadStream(fileName, {
     contentType: mimeType || 'application/octet-stream',
-    metadata: { sha256: crypto.createHash('sha256').update(buffer).digest('hex') }
+    metadata: { sha256: sourceFileSha256(buffer) }
   });
 
   await new Promise((resolve, reject) => {
@@ -25,8 +29,27 @@ export async function retainSourceFile(buffer, { fileName, mimeType }) {
     file_name: fileName,
     mime_type: mimeType || 'application/octet-stream',
     size_bytes: buffer.length,
-    sha256: crypto.createHash('sha256').update(buffer).digest('hex')
+    sha256: sourceFileSha256(buffer)
   };
+}
+
+export async function readRetainedSourceFile(sourceFile) {
+  if (!sourceFile?.storage_id || !mongoose.connection.db) throw new Error('Retained source file is unavailable');
+  const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: sourceFile.bucket || 'import_files' });
+  const chunks = [];
+  await new Promise((resolve, reject) => {
+    const stream = bucket.openDownloadStream(sourceFile.storage_id);
+    stream.on('data', (chunk) => chunks.push(chunk));
+    stream.once('error', reject);
+    stream.once('end', resolve);
+  });
+  return Buffer.concat(chunks);
+}
+
+export async function deleteRetainedSourceFile(sourceFile) {
+  if (!sourceFile?.storage_id || !mongoose.connection.db) return;
+  const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: sourceFile.bucket || 'import_files' });
+  await bucket.delete(sourceFile.storage_id);
 }
 
 export async function saveIssues(batchId, issues) {
